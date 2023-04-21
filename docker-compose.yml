@@ -61,5 +61,6 @@ services:
     environment:
       ConnectionStrings__DbConnection: Server=mssql;Database=BookStore;User Id=SA;Password=P@ssw0rd?;Encrypt=False
       Otlp__Endpoint: http://otel-collector:4317
+      APP_INSIGHTS_CONN_STRING: CONN_STRING
     networks:
       - metrics

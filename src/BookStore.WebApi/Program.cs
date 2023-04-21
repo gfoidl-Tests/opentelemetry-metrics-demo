@@ -1,3 +1,4 @@
+using Azure.Monitor.OpenTelemetry.Exporter;
 using BookStore.Infrastructure.Metrics;
 using BookStore.WebApi.Middleware;
 using Microsoft.OpenApi.Models;
@@ -35,6 +36,10 @@ builder.Services
         .AddOtlpExporter(options =>
         {
             options.Endpoint = new Uri(builder.Configuration["Otlp:Endpoint"] ?? throw new InvalidOperationException());
+        })
+        .AddAzureMonitorMetricExporter(options =>
+        {
+            options.ConnectionString = Environment.GetEnvironmentVariable("APP_INSIGHTS_CONN_STRING") ?? throw new InvalidOperationException();
         })
     );
 
