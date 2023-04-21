@@ -28,16 +28,10 @@ builder.Services
     .AddOpenTelemetry()
     .WithMetrics(meterProviderBuilder => meterProviderBuilder
         .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("BookStore.WebApi"))
-        .AddMeter(meters.MetricName)
+        .AddOtelMetrics(meters)     // Custom metrics
         .AddAspNetCoreInstrumentation()
         .AddProcessInstrumentation()
         .AddRuntimeInstrumentation()
-        .AddView(
-            instrumentName: "orders-price",
-            new ExplicitBucketHistogramConfiguration { Boundaries = new double[] { 15, 30, 45, 60, 75 } })
-        .AddView(
-            instrumentName: "orders-number-of-books",
-            new ExplicitBucketHistogramConfiguration { Boundaries = new double[] { 1, 2, 5 } })
         .AddOtlpExporter(options =>
         {
             options.Endpoint = new Uri(builder.Configuration["Otlp:Endpoint"] ?? throw new InvalidOperationException());
