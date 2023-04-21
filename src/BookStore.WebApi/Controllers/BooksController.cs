@@ -1,124 +1,123 @@
-﻿using AutoMapper;
+using AutoMapper;
 using BookStore.Domain.Interfaces;
 using BookStore.Domain.Models;
 using BookStore.WebApi.Dtos.Book;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookStore.WebApi.Controllers
+namespace BookStore.WebApi.Controllers;
+
+[Route("api/[controller]")]
+public class BooksController : ControllerBase
 {
-    [Route("api/[controller]")]
-    public class BooksController : ControllerBase
+    private readonly IBookService _bookService;
+    private readonly IMapper _mapper;
+
+    public BooksController(IMapper mapper, IBookService bookService)
     {
-        private readonly IBookService _bookService;
-        private readonly IMapper _mapper;
+        _mapper = mapper;
+        _bookService = bookService;
+    }
 
-        public BooksController(IMapper mapper,
-                                IBookService bookService)
-        {
-            _mapper = mapper;
-            _bookService = bookService;
-        }
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll()
+    {
+        IEnumerable<Book> books = await _bookService.GetAll();
 
-        [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAll()
-        {
-            var books = await _bookService.GetAll();
+        return this.Ok(_mapper.Map<IEnumerable<BookResultDto>>(books));
+    }
 
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(int id)
+    {
+        Book? book = await _bookService.GetById(id);
 
-            return Ok(_mapper.Map<IEnumerable<BookResultDto>>(books));
-        }
+        return book is null
+            ? this.NotFound()
+            : this.Ok(_mapper.Map<BookResultDto>(book));
+    }
 
-        [HttpGet("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var book = await _bookService.GetById(id);
+    [HttpGet]
+    [Route("get-books-by-category/{categoryId:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBooksByCategory(int categoryId)
+    {
+        IEnumerable<Book> books = await _bookService.GetBooksByCategory(categoryId);
 
-            if (book == null) return NotFound();
+        return books.Any()
+            ? this.Ok(_mapper.Map<IEnumerable<BookResultDto>>(books))
+            : this.NotFound();
+    }
 
-            return Ok(_mapper.Map<BookResultDto>(book));
-        }
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Add([FromBody] BookAddDto bookDto)
+    {
+        if (!this.ModelState.IsValid) return this.BadRequest();
 
-        [HttpGet]
-        [Route("get-books-by-category/{categoryId:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetBooksByCategory(int categoryId)
-        {
-            var books = await _bookService.GetBooksByCategory(categoryId);
+        Book book = _mapper.Map<Book>(bookDto);
+        Book? bookResult = await _bookService.Add(book);
 
-            if (!books.Any()) return NotFound();
+        return bookResult is null
+            ? this.BadRequest()
+            : this.Ok(_mapper.Map<BookResultDto>(bookResult));
+    }
 
-            return Ok(_mapper.Map<IEnumerable<BookResultDto>>(books));
-        }
+    [HttpPut]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Update([FromBody] BookEditDto bookDto)
+    {
+        if (!this.ModelState.IsValid) return this.BadRequest();
 
-        [HttpPost]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Add([FromBody]BookAddDto bookDto)
-        {
-            if (!ModelState.IsValid) return BadRequest();
+        Book? bookResult = await _bookService.Update(_mapper.Map<Book>(bookDto));
 
-            var book = _mapper.Map<Book>(bookDto);
-            var bookResult = await _bookService.Add(book);
+        return bookResult is null
+            ? this.BadRequest()
+            : this.Ok(bookDto);
+    }
 
-            if (bookResult == null) return BadRequest();
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Remove(int id)
+    {
+        Book? book = await _bookService.GetById(id);
 
-            return Ok(_mapper.Map<BookResultDto>(bookResult));
-        }
+        if (book is null) return this.NotFound();
 
-        [HttpPut]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Update([FromBody]BookEditDto bookDto)
-        {
-            if (!ModelState.IsValid) return BadRequest();
+        await _bookService.Remove(book);
 
-            var bookResult = await _bookService.Update(_mapper.Map<Book>(bookDto));
-            if (bookResult == null) return BadRequest();
+        return this.Ok();
+    }
 
-            return Ok(bookDto);
-        }
+    [HttpGet]
+    [Route("search/{bookName}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<Book>>> Search(string bookName)
+    {
+        List<Book> books = _mapper.Map<List<Book>>(await _bookService.Search(bookName));
 
-        [HttpDelete("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Remove(int id)
-        {
-            var book = await _bookService.GetById(id);
-            if (book == null) return NotFound();
+        if (books == null || books.Count == 0) return this.NotFound("None book was founded");
 
-            await _bookService.Remove(book);
+        return this.Ok(books);
+    }
 
-            return Ok();
-        }
+    [HttpGet]
+    [Route("search-book-with-category/{searchedValue}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<Book>>> SearchBookWithCategory(string searchedValue)
+    {
+        List<Book> books = _mapper.Map<List<Book>>(await _bookService.SearchBookWithCategory(searchedValue));
 
-        [HttpGet]
-        [Route("search/{bookName}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<List<Book>>> Search(string bookName)
-        {
-            var books = _mapper.Map<List<Book>>(await _bookService.Search(bookName));
+        if (!books.Any()) return this.NotFound("None book was founded");
 
-            if (books == null || books.Count == 0) return NotFound("None book was founded");
-
-            return Ok(books);
-        }
-
-        [HttpGet]
-        [Route("search-book-with-category/{searchedValue}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<List<Book>>> SearchBookWithCategory(string searchedValue)
-        {
-            var books = _mapper.Map<List<Book>>(await _bookService.SearchBookWithCategory(searchedValue));
-
-            if (!books.Any()) return NotFound("None book was founded");
-
-            return Ok(_mapper.Map<IEnumerable<BookResultDto>>(books));
-        }
+        return this.Ok(_mapper.Map<IEnumerable<BookResultDto>>(books));
     }
 }

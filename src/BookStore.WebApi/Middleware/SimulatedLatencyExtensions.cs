@@ -1,18 +1,10 @@
-﻿namespace BookStore.WebApi.Middleware
+namespace BookStore.WebApi.Middleware;
+
+public static class SimulatedLatencyExtensions
 {
-    public static class SimulatedLatencyExtensions
-    {
-        public static IApplicationBuilder UseSimulatedLatency(
-            this IApplicationBuilder app,
-            TimeSpan min,
-            TimeSpan max
-        )
-        {
-            return app.UseMiddleware(
-                typeof(SimulatedLatencyMiddleware),
-                min,
-                max
-            );
-        }
-    }
+    public static IApplicationBuilder UseSimulatedLatency(
+        this IApplicationBuilder app,
+        TimeSpan min,
+        TimeSpan max)
+        => app.UseMiddleware<SimulatedLatencyMiddleware>(min, max);
 }

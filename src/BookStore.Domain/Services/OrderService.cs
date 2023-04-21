@@ -1,93 +1,93 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using BookStore.Domain.Interfaces;
 using BookStore.Domain.Models;
 
-namespace BookStore.Domain.Services
+namespace BookStore.Domain.Services;
+
+public class OrderService : IOrderService
 {
-    public class OrderService: IOrderService
+    private readonly IOrderRepository _orderRepository;
+    private readonly IBookRepository _bookRepository;
+    private readonly IInventoryRepository _inventoryRepository;
+
+    public OrderService(IOrderRepository orderRepository,
+        IBookRepository bookRepository,
+        IInventoryRepository inventoryRepository)
     {
-        private readonly IOrderRepository _orderRepository;
-        private readonly IBookRepository _bookRepository;
-        private readonly IInventoryRepository _inventoryRepository;
+        _orderRepository = orderRepository;
+        _bookRepository = bookRepository;
+        _inventoryRepository = inventoryRepository;
+    }
 
-        public OrderService(IOrderRepository orderRepository,
-            IBookRepository bookRepository, 
-            IInventoryRepository inventoryRepository)
+    public async Task<IEnumerable<Order>> GetAll() => await _orderRepository.GetAll();
+
+    public async Task<Order?> GetById(int id) => await _orderRepository.GetById(id);
+
+    public async Task<Order?> Add(Order order)
+    {
+        if (order.Books is null)
         {
-            _orderRepository = orderRepository;
-            _bookRepository = bookRepository;
-            _inventoryRepository = inventoryRepository;
+            return null;
         }
 
+        double sum = 0;
+        List<Inventory> inventoryList = new();
 
-        public async Task<IEnumerable<Order>> GetAll()
+        for (int i = 0; i < order.Books.Count; i++)
         {
-            return await _orderRepository.GetAll();
-        }
-
-        public async Task<Order> GetById(int id)
-        {
-            return await _orderRepository.GetById(id);
-        }
-
-        public async Task<Order> Add(Order order)
-        {
-            double sum = 0;
-            List<Inventory> inventoryList = new();
-
-            for (var i = 0; i < order.Books.Count; i++)
-            {
-                var orderingBook = await _bookRepository.GetById(order.Books[i].Id);
-                if (orderingBook is null)
-                    return null;
-
-                if (!orderingBook.HasPositivePrice())
-                    return null;
-
-                if (!orderingBook.HasCorrectPublishDate())
-                    return null;
-
-                var inventory = await _inventoryRepository.GetById(order.Books[i].Id);
-                if (inventory is null || !inventory.HasInventoryAvailable())
-                    return null;
-
-                order.Books[i] = orderingBook;
-                sum += orderingBook.Value;
-                inventoryList.Add(inventory);
-            }
-
-            foreach (var inventoryItem in inventoryList)
-            {
-                inventoryItem.DecreaseInventory();
-                await _inventoryRepository.Update(inventoryItem);
-            }
-
-            order.SetTotalAmount(sum);
-            order.SetNewOrderStatus();
-            await _orderRepository.Add(order);
-
-            return order;
-        }
-
-        public async Task<Order> Remove(Order order)
-        {
-            if (order.IsAlreadyCancelled())
+            Book? orderingBook = await _bookRepository.GetById(order.Books[i].Id);
+            if (orderingBook is null)
                 return null;
 
-            order.SetCancelledStatus();
-            await _orderRepository.Update(order);
+            if (!orderingBook.HasPositivePrice())
+                return null;
 
-            foreach (var book in order.Books)
-            {
-                var inventory = await _inventoryRepository.GetById(book.Id);
-                inventory.IncreaseInventory();
-                await _inventoryRepository.Update(inventory);
-            }
+            if (!orderingBook.HasCorrectPublishDate())
+                return null;
 
-            return order;
+            Inventory? inventory = await _inventoryRepository.GetById(order.Books[i].Id);
+            if (inventory?.HasInventoryAvailable() is false)
+                return null;
 
+            order.Books[i] = orderingBook;
+            sum += orderingBook.Value;
+            inventoryList.Add(inventory!);
         }
+
+        foreach (Inventory inventoryItem in inventoryList)
+        {
+            inventoryItem.DecreaseInventory();
+            await _inventoryRepository.Update(inventoryItem);
+        }
+
+        order.SetTotalAmount(sum);
+        order.SetNewOrderStatus();
+        await _orderRepository.Add(order);
+
+        return order;
+    }
+
+    public async Task<Order?> Remove(Order order)
+    {
+        if (order.IsAlreadyCancelled())
+            return null;
+
+        order.SetCancelledStatus();
+        await _orderRepository.Update(order);
+
+        if (order.Books is not null)
+        {
+            foreach (Book book in order.Books)
+            {
+                Inventory? inventory = await _inventoryRepository.GetById(book.Id);
+
+                if (inventory is not null)
+                {
+                    inventory.IncreaseInventory();
+                    await _inventoryRepository.Update(inventory);
+                }
+            }
+        }
+
+        return order;
     }
 }

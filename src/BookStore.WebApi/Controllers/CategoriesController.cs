@@ -1,100 +1,99 @@
-﻿using AutoMapper;
+using AutoMapper;
 using BookStore.Domain.Interfaces;
 using BookStore.Domain.Models;
 using BookStore.WebApi.Dtos.Category;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookStore.WebApi.Controllers
+namespace BookStore.WebApi.Controllers;
+
+[Route("api/[controller]")]
+public class CategoriesController : ControllerBase
 {
-    [Route("api/[controller]")]
-    public class CategoriesController : ControllerBase
+    private readonly ICategoryService _categoryService;
+    private readonly IMapper _mapper;
+
+    public CategoriesController(IMapper mapper, ICategoryService categoryService)
     {
-        private readonly ICategoryService _categoryService;
-        private readonly IMapper _mapper;
+        _mapper = mapper;
+        _categoryService = categoryService;
+    }
 
-        public CategoriesController(IMapper mapper,
-                                    ICategoryService categoryService)
-        {
-            _mapper = mapper;
-            _categoryService = categoryService;
-        }
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll()
+    {
+        IEnumerable<Category> categories = await _categoryService.GetAll();
 
-        [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAll()
-        {
-            var categories = await _categoryService.GetAll();
+        return this.Ok(_mapper.Map<IEnumerable<CategoryResultDto>>(categories));
+    }
 
-            return Ok(_mapper.Map<IEnumerable<CategoryResultDto>>(categories));
-        }
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(int id)
+    {
+        Category? category = await _categoryService.GetById(id);
 
-        [HttpGet("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var category = await _categoryService.GetById(id);
+        return category is null
+            ? this.NotFound()
+            : this.Ok(_mapper.Map<CategoryResultDto>(category));
+    }
 
-            if (category == null) return NotFound();
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Add([FromBody] CategoryAddDto categoryDto)
+    {
+        if (!this.ModelState.IsValid) return this.BadRequest();
 
-            return Ok(_mapper.Map<CategoryResultDto>(category));
-        }
+        Category category = _mapper.Map<Category>(categoryDto);
+        Category? categoryResult = await _categoryService.Add(category);
 
-        [HttpPost]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Add([FromBody]CategoryAddDto categoryDto)
-        {
-            if (!ModelState.IsValid) return BadRequest();
+        return categoryResult is null
+            ? this.BadRequest()
+            : this.Ok(_mapper.Map<CategoryResultDto>(categoryResult));
+    }
 
-            var category = _mapper.Map<Category>(categoryDto);
-            var categoryResult = await _categoryService.Add(category);
+    [HttpPut]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Update([FromBody] CategoryEditDto categoryDto)
+    {
+        if (!this.ModelState.IsValid) return this.BadRequest();
 
-            if (categoryResult == null) return BadRequest();
+        Category? categoryResult = await _categoryService.Update(_mapper.Map<Category>(categoryDto));
 
-            return Ok(_mapper.Map<CategoryResultDto>(categoryResult));
-        }
+        return categoryResult is null
+            ? this.BadRequest()
+            : this.Ok(categoryDto);
+    }
 
-        [HttpPut]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Update([FromBody]CategoryEditDto categoryDto)
-        {
-            if (!ModelState.IsValid) return BadRequest();
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Remove(int id)
+    {
+        Category? category = await _categoryService.GetById(id);
 
-            var categoryResult = await _categoryService.Update(_mapper.Map<Category>(categoryDto));
-            if (categoryResult == null) return BadRequest();
+        if (category is null) return this.NotFound();
 
-            return Ok(categoryDto);
-        }
+        bool result = await _categoryService.Remove(category);
 
-        [HttpDelete("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Remove(int id)
-        {
-            var category = await _categoryService.GetById(id);
-            if (category == null) return NotFound();
+        if (!result) return this.BadRequest();
 
-            var result = await _categoryService.Remove(category);
+        return this.Ok();
+    }
 
-            if (!result) return BadRequest();
+    [HttpGet]
+    [Route("search/{category}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<Category>>> Search(string category)
+    {
+        List<Category> categories = _mapper.Map<List<Category>>(await _categoryService.Search(category));
 
-            return Ok();
-        }
-
-        [HttpGet]
-        [Route("search/{category}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<List<Category>>> Search(string category)
-        {
-            var categories = _mapper.Map<List<Category>>(await _categoryService.Search(category));
-
-            if (categories == null || categories.Count == 0)
-                return NotFound("None category was founded");
-
-            return Ok(categories);
-        }
+        return categories == null || categories.Count == 0
+            ? (ActionResult<List<Category>>)this.NotFound("None category was founded")
+            : (ActionResult<List<Category>>)this.Ok(categories);
     }
 }

@@ -1,11 +1,8 @@
-﻿using System.Collections.Generic;
+namespace BookStore.Domain.Models;
 
-namespace BookStore.Domain.Models
+public class Category : Entity
 {
-    public class Category : Entity
-    {
-        public string Name { get; set; }
-        
-        public IEnumerable<Book> Books { get; set; }
-    }
+    public string? Name { get; set; }
+
+    public IEnumerable<Book>? Books { get; set; }
 }

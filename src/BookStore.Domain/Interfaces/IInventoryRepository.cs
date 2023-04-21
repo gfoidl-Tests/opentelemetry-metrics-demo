@@ -1,11 +1,8 @@
-﻿using BookStore.Domain.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using BookStore.Domain.Models;
 
-namespace BookStore.Domain.Interfaces
+namespace BookStore.Domain.Interfaces;
+
+public interface IInventoryRepository : IRepository<Inventory>
 {
-    public interface IInventoryRepository : IRepository<Inventory>
-    {
-        Task<IEnumerable<Inventory>> SearchInventoryForBook(string bookName);
-    }
+    Task<IEnumerable<Inventory>> SearchInventoryForBook(string bookName);
 }

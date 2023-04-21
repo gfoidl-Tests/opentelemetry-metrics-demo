@@ -1,7 +1,6 @@
-﻿namespace BookStore.Domain.Models
+namespace BookStore.Domain.Models;
+
+public abstract class Entity
 {
-    public abstract class Entity
-    {
-        public int Id { get; set; }
-    }
+    public int Id { get; set; }
 }

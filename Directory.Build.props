@@ -1,0 +1,12 @@
+<Project>
+
+    <PropertyGroup>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <StandardTfms>net7.0</StandardTfms>
+    </PropertyGroup>
+
+</Project>

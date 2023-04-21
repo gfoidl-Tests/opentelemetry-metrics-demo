@@ -1,9 +1,7 @@
-﻿using BookStore.Domain.Models;
+using BookStore.Domain.Models;
 
-namespace BookStore.Domain.Interfaces
+namespace BookStore.Domain.Interfaces;
+
+public interface ICategoryRepository : IRepository<Category>
 {
-    public interface ICategoryRepository : IRepository<Category>
-    {
-
-    }
 }

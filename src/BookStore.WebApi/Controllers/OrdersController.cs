@@ -1,74 +1,72 @@
-﻿using AutoMapper;
+using AutoMapper;
 using BookStore.Domain.Interfaces;
 using BookStore.Domain.Models;
 using BookStore.WebApi.Dtos.Order;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookStore.WebApi.Controllers
+namespace BookStore.WebApi.Controllers;
+
+[Route("api/[controller]")]
+public class OrdersController : ControllerBase
 {
-    [Route("api/[controller]")]
-    public class OrdersController : ControllerBase
+    private readonly IOrderService _orderService;
+    private readonly IMapper _mapper;
+
+    public OrdersController(IMapper mapper, IOrderService orderService)
     {
-        private readonly IOrderService _orderService;
-        private readonly IMapper _mapper;
+        _mapper = mapper;
+        _orderService = orderService;
+    }
 
-        public OrdersController(IMapper mapper,
-                                    IOrderService orderService)
-        {
-            _mapper = mapper;
-            _orderService = orderService;
-        }
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll()
+    {
+        IEnumerable<Order> orders = await _orderService.GetAll();
 
-        [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAll()
-        {
-            var orders = await _orderService.GetAll();
+        return this.Ok(_mapper.Map<IEnumerable<OrderResultDto>>(orders));
+    }
 
-            return Ok(_mapper.Map<IEnumerable<OrderResultDto>>(orders));
-        }
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(int id)
+    {
+        Order? order = await _orderService.GetById(id);
 
-        [HttpGet("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var order = await _orderService.GetById(id);
+        return order is null
+            ? this.NotFound()
+            : this.Ok(_mapper.Map<OrderResultDto>(order));
+    }
 
-            if (order is null) 
-                return NotFound();
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Add([FromBody] OrderAddDto orderDto)
+    {
+        if (!this.ModelState.IsValid) return this.BadRequest();
 
-            return Ok(_mapper.Map<OrderResultDto>(order));
-        }
+        Order order = _mapper.Map<Order>(orderDto);
+        Order? result = await _orderService.Add(order);
 
-        [HttpPost]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Add([FromBody]OrderAddDto orderDto)
-        {
-            if (!ModelState.IsValid) return BadRequest();
+        return result is null
+            ? this.BadRequest()
+            : this.Ok(_mapper.Map<OrderResultDto>(result));
+    }
 
-            var order = _mapper.Map<Order>(orderDto);
-            var result = await _orderService.Add(order);
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Remove(int id)
+    {
+        Order? order = await _orderService.GetById(id);
 
-            if (result == null) return BadRequest();
+        if (order is null) return this.NotFound();
 
-            return Ok(_mapper.Map<OrderResultDto>(result));
-        }
+        Order? result = await _orderService.Remove(order);
 
+        if (result is null) return this.BadRequest();
 
-        [HttpDelete("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Remove(int id)
-        {
-            var order = await _orderService.GetById(id);
-            if (order == null) return NotFound();
-
-            var result = await _orderService.Remove(order);
-            if (result == null)  return BadRequest();
-
-            return Ok(_mapper.Map<OrderResultDto>(result));
-        }
+        return this.Ok(_mapper.Map<OrderResultDto>(result));
     }
 }

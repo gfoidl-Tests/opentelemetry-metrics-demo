@@ -1,11 +1,8 @@
-﻿using BookStore.Domain.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using BookStore.Domain.Models;
 
-namespace BookStore.Domain.Interfaces
+namespace BookStore.Domain.Interfaces;
+
+public interface IOrderRepository : IRepository<Order>
 {
-    public interface IOrderRepository: IRepository<Order>
-    {
-        Task<List<Order>> GetOrdersByBookId(int bookId);
-    }
+    Task<List<Order>> GetOrdersByBookId(int bookId);
 }

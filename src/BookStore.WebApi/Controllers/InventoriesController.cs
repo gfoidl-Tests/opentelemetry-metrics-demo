@@ -1,90 +1,88 @@
-﻿using AutoMapper;
+using AutoMapper;
 using BookStore.Domain.Interfaces;
 using BookStore.Domain.Models;
 using BookStore.WebApi.Dtos.Inventory;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookStore.WebApi.Controllers
+namespace BookStore.WebApi.Controllers;
+
+[Route("api/[controller]")]
+public class InventoriesController : ControllerBase
 {
-    [Route("api/[controller]")]
-    public class InventoriesController : ControllerBase
+    private readonly IInventoryService _inventoryService;
+    private readonly IMapper _mapper;
+
+    public InventoriesController(IMapper mapper, IInventoryService inventoryService)
     {
-        private readonly IInventoryService _inventoryService;
-        private readonly IMapper _mapper;
+        _mapper = mapper;
+        _inventoryService = inventoryService;
+    }
 
-        public InventoriesController(IMapper mapper,
-                                IInventoryService inventoryService)
-        {
-            _mapper = mapper;
-            _inventoryService = inventoryService;
-        }
+    [HttpGet("{bookId:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(int bookId)
+    {
+        Inventory? inventory = await _inventoryService.GetById(bookId);
 
+        if (inventory is null) return this.NotFound();
 
-        [HttpGet("{bookId:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetById(int bookId)
-        {
-            var inventory = await _inventoryService.GetById(bookId);
+        return this.Ok(_mapper.Map<InventoryResultDto>(inventory));
+    }
 
-            if (inventory == null) return NotFound();
+    [HttpGet]
+    [Route("get-inventory-by-book-name/{bookName}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<Inventory>>> SearchInventoryForBook(string bookName)
+    {
+        List<Inventory> inventory = _mapper.Map<List<Inventory>>(await _inventoryService.SearchInventoryForBook(bookName));
 
-            return Ok(_mapper.Map<InventoryResultDto>(inventory));
-        }
+        if (!inventory.Any()) return this.NotFound("None inventory was founded");
 
+        return this.Ok(_mapper.Map<IEnumerable<InventoryResultDto>>(inventory));
+    }
 
-        [HttpGet]
-        [Route("get-inventory-by-book-name/{bookName}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<List<Inventory>>> SearchInventoryForBook(string bookName)
-        {
-            var inventory = _mapper.Map<List<Inventory>>(await _inventoryService.SearchInventoryForBook(bookName));
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Add([FromBody] InventoryAddDto inventoryDto)
+    {
+        if (!this.ModelState.IsValid) return this.BadRequest();
 
-            if (!inventory.Any()) return NotFound("None inventory was founded");
+        Inventory inventory = _mapper.Map<Inventory>(inventoryDto);
+        Inventory? inventoryResult = await _inventoryService.Add(inventory);
 
-            return Ok(_mapper.Map<IEnumerable<InventoryResultDto>>(inventory));
-        }
+        return inventoryResult is null
+            ? this.BadRequest()
+            : this.Ok(_mapper.Map<InventoryResultDto>(inventoryResult));
+    }
 
-        [HttpPost]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Add([FromBody]InventoryAddDto inventoryDto)
-        {
-            if (!ModelState.IsValid) return BadRequest();
+    [HttpPut]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Update([FromBody] InventoryEditDto inventoryDto)
+    {
+        if (!this.ModelState.IsValid) return this.BadRequest();
 
-            var inventory = _mapper.Map<Inventory>(inventoryDto);
-            var inventoryResult = await _inventoryService.Add(inventory);
+        await _inventoryService.Update(_mapper.Map<Inventory>(inventoryDto));
 
-            if (inventoryResult == null) return BadRequest();
+        return this.Ok(inventoryDto);
+    }
 
-            return Ok(_mapper.Map<InventoryResultDto>(inventoryResult));
-        }
+    [HttpDelete("{bookId:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Remove(int bookId)
+    {
+        Inventory? inventory = await _inventoryService.GetById(bookId);
 
-        [HttpPut]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Update([FromBody]InventoryEditDto inventoryDto)
-        {
-            if (!ModelState.IsValid) return BadRequest();
+        if (inventory is null) return this.NotFound();
 
-            await _inventoryService.Update(_mapper.Map<Inventory>(inventoryDto));
+        bool result = await _inventoryService.Remove(inventory);
 
-            return Ok(inventoryDto);
-        }
+        if (!result) return this.BadRequest();
 
-        [HttpDelete("{bookId:int}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Remove(int bookId)
-        {
-            var inventory = await _inventoryService.GetById(bookId);
-            if (inventory == null) return NotFound();
-
-            var result = await _inventoryService.Remove(inventory);
-            if (!result) return BadRequest();
-
-            return Ok();
-        }
+        return this.Ok();
     }
 }
